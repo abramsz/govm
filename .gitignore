@@ -1,0 +1,28 @@
+# Binary
+govm
+govm.exe
+
+# Go workspace
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files (from tests)
+*.tmp
+
+# Govm local data (user-specific, not project)
+.govm/
+
+# Internal docs (code reviews, design notes)
+docs/
+
+# CLI tooling artifacts
+.reasonix/
