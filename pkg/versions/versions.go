@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/abramsz/govm/pkg/config"
 )
 
 // Release represents a single Go release from the download API.
@@ -39,13 +41,23 @@ func SetCacheDir(dir string) {
 	cacheDir = dir
 }
 
+// baseURLs is the ordered list of download base URLs to try.
+// Set via SetBaseURLs; defaults to [config.DefaultMirror].
+var baseURLs []string
+
+// SetBaseURLs sets the ordered list of mirror URLs to try.
+// Each URL must end with "/".
+func SetBaseURLs(urls []string) {
+	baseURLs = urls
+}
+
 // cacheTTL controls how often the remote API is polled.
 const cacheTTL = 1 * time.Hour
 
 // defaultHTTPClient is shared by FetchAll / FetchStable with a 30s timeout.
 var defaultHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
-// FetchAll retrieves every release from go.dev/dl/?mode=json.
+// FetchAll retrieves every release from the Go download API.
 // Results are cached in CacheDir for cacheTTL.
 func FetchAll(ctx context.Context) ([]Release, error) {
 	// Try cache first.
@@ -81,28 +93,41 @@ func FetchStable(ctx context.Context) ([]Release, error) {
 	return stable, nil
 }
 
-// fetchRemote performs the actual HTTP request.
+// fetchRemote tries each base URL in order, returning the first successful result.
 func fetchRemote(ctx context.Context) ([]Release, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://go.dev/dl/?mode=json", nil)
-	if err != nil {
-		return nil, fmt.Errorf("fetch version list: %w", err)
+	urls := baseURLs
+	if len(urls) == 0 {
+		urls = []string{config.DefaultMirror}
 	}
 
-	resp, err := defaultHTTPClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetch version list: %w", err)
-	}
-	defer resp.Body.Close()
+	var lastErr error
+	for _, base := range urls {
+		req, err := http.NewRequestWithContext(ctx, "GET", base+"?mode=json", nil)
+		if err != nil {
+			return nil, fmt.Errorf("fetch version list: %w", err)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fetch version list: HTTP %d", resp.StatusCode)
+		resp, err := defaultHTTPClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("%s: %w", base, err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("%s: HTTP %d", base, resp.StatusCode)
+			continue
+		}
+
+		var releases []Release
+		if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+			lastErr = fmt.Errorf("%s: decode: %w", base, err)
+			continue
+		}
+		return releases, nil
 	}
 
-	var releases []Release
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
-		return nil, fmt.Errorf("decode version list: %w", err)
-	}
-	return releases, nil
+	return nil, fmt.Errorf("all mirrors failed: %v", lastErr)
 }
 
 // loadCache returns cached releases if fresh.

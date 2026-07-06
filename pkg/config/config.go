@@ -14,6 +14,10 @@ import (
 // FileName is the name of the config file inside GOVM_HOME.
 const FileName = "config.json"
 
+// DefaultMirror is the default Go download base URL.
+// Uses Google China CDN for better accessibility in China region.
+const DefaultMirror = "https://golang.google.cn/dl/"
+
 // Config holds the govm configuration.
 type Config struct {
 	// DefaultVersion is the global default Go version.
@@ -25,9 +29,24 @@ type Config struct {
 	// Example: "stable" → "1.26.4", "latest" → "1.26.4"
 	Aliases map[string]string `json:"aliases,omitempty"`
 
-	// Mirror overrides the default download base URL (go.dev/dl/).
-	// Useful for air-gapped environments or regional mirrors.
+	// Mirror is a single mirror URL (backwards compatible shorthand).
 	Mirror string `json:"mirror,omitempty"`
+
+	// Mirrors is a list of download base URLs tried in order.
+	// Falls back to DefaultMirror if none succeed.
+	Mirrors []string `json:"mirrors,omitempty"`
+}
+
+// EffectiveMirrors returns the list of mirrors to try, falling back
+// to DefaultMirror if none are configured.
+func (c *Config) EffectiveMirrors() []string {
+	if len(c.Mirrors) > 0 {
+		return c.Mirrors
+	}
+	if c.Mirror != "" {
+		return []string{c.Mirror}
+	}
+	return []string{DefaultMirror}
 }
 
 // Default returns a Config with sensible defaults.

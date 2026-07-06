@@ -16,6 +16,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(configSetCmd)
 	configCmd.AddCommand(configAliasCmd)
+	configCmd.AddCommand(configAddMirrorCmd)
 }
 
 // resolveVersion resolves aliases in version strings.
@@ -121,5 +122,40 @@ After setting an alias, you can use it anywhere a version is expected:
 		}
 
 		return config.Save(govmHome, cfg)
+	},
+}
+
+var configAddMirrorCmd = &cobra.Command{
+	Use:   "add-mirror <url>",
+	Short: "Add a mirror URL to the list (tried in order)",
+	Long: `Add a download mirror URL to the ordered list.
+
+Mirrors are tried in order; if one fails the next is tried.
+The official go.dev/dl/ is always the final fallback.
+
+  govm config add-mirror https://private.corp.com/go/
+  govm config add-mirror https://go-mirror.example.com/dl/
+
+View configured mirrors:
+  govm config | jq '.mirrors'
+
+Set a single mirror (replaces list):
+  govm config set mirror https://go-mirror.example.com/dl/`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		url := args[0]
+
+		govmHome := store.Home()
+		cfg := config.Load(govmHome)
+
+		cfg.Mirrors = append(cfg.Mirrors, url)
+		// Clear old single Mirror field when using Mirrors list.
+		cfg.Mirror = ""
+
+		if err := config.Save(govmHome, cfg); err != nil {
+			return err
+		}
+		fmt.Printf("config: mirror %q added (total: %d)\n", url, len(cfg.Mirrors))
+		return nil
 	},
 }

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/abramsz/govm/pkg/config"
 	"github.com/abramsz/govm/pkg/versions"
 )
 
@@ -24,6 +25,15 @@ const archivePerm os.FileMode = 0o755
 
 // defaultHTTPClient is used for downloads with a 30m timeout (large archives).
 var defaultHTTPClient = &http.Client{Timeout: 30 * time.Minute}
+
+// baseURLs is the ordered list of download base URLs to try.
+// Set via SetBaseURLs.
+var baseURLs []string
+
+// SetBaseURLs sets the ordered list of mirror URLs to try.
+func SetBaseURLs(urls []string) {
+	baseURLs = urls
+}
 
 // FindFile returns the download File for the given OS/arch from a release.
 // If archOverride is empty, runtime.GOARCH is used.
@@ -51,12 +61,26 @@ func Download(ctx context.Context, release versions.Release, destDir string, arc
 		return "", fmt.Errorf("no archive for %s/%s in release %s", runtime.GOOS, runtime.GOARCH, release.Version)
 	}
 
-	url := "https://go.dev/dl/" + f.Filename
-	fmt.Fprintf(os.Stderr, "Downloading %s\n", f.Filename)
+	urls := baseURLs
+	if len(urls) == 0 {
+		urls = []string{config.DefaultMirror}
+	}
 
-	tmpFile, err := downloadToTemp(ctx, url, f.Size, f.SHA256)
-	if err != nil {
-		return "", err
+	var lastErr error
+	var tmpFile string
+	for _, base := range urls {
+		url := base + f.Filename
+		fmt.Fprintf(os.Stderr, "Downloading from %s\n", base)
+
+		tmpFile, lastErr = downloadToTemp(ctx, url, f.Size, f.SHA256)
+		if lastErr == nil {
+			break
+		}
+		fmt.Fprintf(os.Stderr, "  failed: %v, trying next mirror...\n", lastErr)
+		lastErr = fmt.Errorf("%s: %w", base, lastErr)
+	}
+	if lastErr != nil {
+		return "", fmt.Errorf("all mirrors failed: %v", lastErr)
 	}
 	defer os.Remove(tmpFile)
 
