@@ -8,7 +8,7 @@ import (
 
 // Version is set by main.init() at startup.
 // Override at build time via -ldflags, see main.go.
-var Version = "0.0.0-dev"
+var Version = "0.1.1-dev"
 
 func init() {
 	rootCmd.AddCommand(versionCmd)

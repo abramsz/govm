@@ -28,7 +28,7 @@ Or read directly in a terminal with a Markdown renderer.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		version := rootCmd.Version
 		if version == "" {
-			version = "0.1.0-dev"
+			version = "0.1.1-dev"
 		}
 		content := manual.Generate(version)
 		fmt.Print(content)
