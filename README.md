@@ -8,6 +8,18 @@
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![CI](https://github.com/abramsz/govm/actions/workflows/ci.yml/badge.svg)](https://github.com/abramsz/govm/actions/workflows/ci.yml)
 
+## Installation
+
+```bash
+# go install (recommended)
+go install github.com/abramsz/govm@latest
+
+# Or build from source
+git clone https://github.com/abramsz/govm
+cd govm
+go build -o govm .
+```
+
 ## Quickstart
 
 ```bash
@@ -177,18 +189,13 @@ Completions dynamically list remote versions (for `install`) and installed versi
   .lock                           # Advisory lock (concurrency safety)
 ```
 
-## Building from source
+## Version injection
 
 ```bash
-git clone https://github.com/abramsz/govm
-cd govm
-go build -o govm .
-
-# With version injection
 go build -ldflags="-X 'main.version=v1.0.0'" -o govm .
 ```
 
-Requires Go 1.22+.
+Requires Go 1.25+.
 
 ## Test
 
